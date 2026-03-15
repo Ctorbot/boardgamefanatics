@@ -26,9 +26,13 @@ ACR name, login server, and Container App name are read from Bicep deployment ou
 **Required GitHub secrets:**
 | Secret | Description |
 |---|---|
-| `AZURE_CREDENTIALS` | JSON from `az ad sp create-for-rbac` |
+| `AZURE_CLIENT_ID` | Service principal app/client ID |
+| `AZURE_CLIENT_SECRET` | Service principal client secret |
+| `AZURE_TENANT_ID` | Azure AD tenant ID |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
 | `AZURE_RESOURCE_GROUP` | Resource group to deploy into |
 | `SUPABASE_CONNECTION_STRING` | Direct connection string (port 5432) |
+| `ALERT_EMAIL` | Email to notify when budget thresholds are hit |
 
 The Supabase connection string is stored as a secret on the Container App and injected as `ConnectionStrings__DefaultConnection`.
 
