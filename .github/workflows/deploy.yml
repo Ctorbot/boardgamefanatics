@@ -40,6 +40,7 @@ jobs:
       - name: Apply database migrations
         working-directory: src/BoardGameFanatics
         run: |
+          dotnet restore
           dotnet tool restore
           dotnet ef database update
         env:
