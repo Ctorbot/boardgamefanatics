@@ -19,12 +19,6 @@ jobs:
             --tenant ${{ secrets.AZURE_TENANT_ID }}
           az account set --subscription ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Register resource providers
-        run: |
-          az provider register --namespace Microsoft.ContainerRegistry --wait
-          az provider register --namespace Microsoft.App --wait
-          az provider register --namespace Microsoft.Consumption --wait
-
       - name: Deploy infrastructure
         id: infra
         run: |
