@@ -1,0 +1,64 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Create resource group
+        run: |
+          az group create \
+            --name ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --location eastus
+
+      - name: Deploy infrastructure
+        id: infra
+        run: |
+          output=$(az deployment group create \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --template-file iac/main.bicep \
+            --parameters connectionString="${{ secrets.SUPABASE_CONNECTION_STRING }}" alertEmail="${{ secrets.ALERT_EMAIL }}" \
+            --query properties.outputs \
+            --output json)
+          echo "acr_name=$(echo $output | jq -r '.acrName.value')" >> $GITHUB_OUTPUT
+          echo "acr_login_server=$(echo $output | jq -r '.acrLoginServer.value')" >> $GITHUB_OUTPUT
+          echo "container_app_name=$(echo $output | jq -r '.containerAppName.value')" >> $GITHUB_OUTPUT
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.x'
+
+      - name: Apply database migrations
+        working-directory: src/BoardGameFanatics
+        run: |
+          dotnet tool restore
+          dotnet ef database update
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.SUPABASE_CONNECTION_STRING }}
+
+      - name: Log in to ACR
+        run: az acr login --name ${{ steps.infra.outputs.acr_name }}
+
+      - name: Build and push image
+        run: |
+          docker build -t ${{ steps.infra.outputs.acr_login_server }}/boardgamefanatics:${{ github.sha }} .
+          docker push ${{ steps.infra.outputs.acr_login_server }}/boardgamefanatics:${{ github.sha }}
+
+      - name: Update container image
+        run: |
+          az containerapp update \
+            --name ${{ steps.infra.outputs.container_app_name }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --image ${{ steps.infra.outputs.acr_login_server }}/boardgamefanatics:${{ github.sha }}
