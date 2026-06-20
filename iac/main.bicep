@@ -31,6 +31,26 @@ resource containerEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
   properties: {}
 }
 
+resource apexCert 'Microsoft.App/managedEnvironments/managedCertificates@2024-03-01' = {
+  parent: containerEnv
+  name: 'boardgamefanatics.com-boardgam-260321202746'
+  location: location
+  properties: {
+    subjectName: 'boardgamefanatics.com'
+    domainControlValidation: 'HTTP'
+  }
+}
+
+resource wwwCert 'Microsoft.App/managedEnvironments/managedCertificates@2024-03-01' = {
+  parent: containerEnv
+  name: 'www.boardgamefanatics.com-boardgam-260322153947'
+  location: location
+  properties: {
+    subjectName: 'www.boardgamefanatics.com'
+    domainControlValidation: 'CNAME'
+  }
+}
+
 // Container App is provisioned with a placeholder image on first deploy.
 // The CI/CD workflow updates the image to the real build after each push.
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
@@ -42,6 +62,18 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
       ingress: {
         external: true
         targetPort: 8080
+        customDomains: [
+          {
+            name: 'boardgamefanatics.com'
+            certificateId: apexCert.id
+            bindingType: 'SniEnabled'
+          }
+          {
+            name: 'www.boardgamefanatics.com'
+            certificateId: wwwCert.id
+            bindingType: 'SniEnabled'
+          }
+        ]
       }
       registries: [
         {
@@ -65,7 +97,7 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: appName
-          image: 'node:20-alpine'
+          image: 'node:26-alpine'
           resources: {
             cpu: json('0.25')
             memory: '0.5Gi'
