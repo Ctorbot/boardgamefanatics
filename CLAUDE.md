@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A hobby site to track board game wins, stats, and collections. Built with ASP.NET Core Blazor (Static SSR) on .NET 10, backed by PostgreSQL via Entity Framework Core.
+A hobby site to track board game wins, stats, and collections. Built with Next.js (App Router, React) on Node.js, backed by PostgreSQL via Prisma.
 
 ## Deployment
 
@@ -18,8 +18,9 @@ Infrastructure is defined in `iac/main.bicep` (Bicep/ARM), which provisions:
 
 CI/CD via `.github/workflows/deploy.yml` — on every push to `main`:
 1. Deploys `iac/main.bicep` (idempotent) to provision/update infrastructure
-2. Builds and pushes the Docker image to ACR
-3. Updates the Container App to the new image
+2. Applies Prisma migrations against Supabase (`prisma migrate deploy`)
+3. Builds and pushes the Docker image to ACR
+4. Updates the Container App to the new image
 
 ACR name, login server, and Container App name are read from Bicep deployment outputs — no need to hardcode them as secrets.
 
@@ -34,28 +35,34 @@ ACR name, login server, and Container App name are read from Bicep deployment ou
 | `SUPABASE_CONNECTION_STRING` | Direct connection string (port 5432) |
 | `ALERT_EMAIL` | Email to notify when budget thresholds are hit |
 
-The Supabase connection string is stored as a secret on the Container App and injected as `ConnectionStrings__DefaultConnection`.
+The Supabase connection string is stored as a secret on the Container App and injected as `DATABASE_URL` (the env var Prisma reads).
 
-Use the **direct Supabase connection** (port 5432), not the pooler — EF Core migrations require it.
+Use the **direct Supabase connection** (port 5432), not the pooler — Prisma migrations require it.
 
-The app exposes `/healthz` for Container Apps liveness/readiness probes.
+The app exposes `/healthz` (a Route Handler) for Container Apps liveness/readiness probes.
 
 ## Commands
 
-All commands run from `src/BoardGameFanatics/`:
+All commands run from `src/web/`:
 
 ```bash
-# Run the app (requires Postgres running locally on port 5432)
-dotnet run
+# Install dependencies (also runs `prisma generate` via postinstall)
+npm install
 
-# Build
-dotnet build
+# Run the app in dev mode (requires Postgres running locally on port 5432)
+npm run dev
 
-# Apply EF migrations
-dotnet ef database update
+# Build for production
+npm run build
 
-# Add a new EF migration
-dotnet ef migrations add <MigrationName>
+# Run the production build
+npm start
+
+# Apply Prisma migrations to the database
+npx prisma migrate deploy
+
+# Create a new migration from schema changes
+npx prisma migrate dev --name <migration-name>
 
 # Run only the database for local development
 docker compose -f docker-compose.dev.yml up -d
@@ -65,22 +72,27 @@ There are no automated tests yet.
 
 ## Architecture
 
-Single-project Blazor Web App (Static Server-Side Rendering) using the `Components/` convention:
+Single Next.js app (App Router) using the `app/` convention:
 
-- **`Program.cs`** — Service registration and middleware pipeline. EF migrations run automatically on startup (`db.Database.Migrate()`).
-- **`Components/`** — All Razor components. `App.razor` is the root, `Routes.razor` handles routing, `Layout/` contains `MainLayout` and `NavMenu`, `Pages/` contains page components.
-- **`Data/ApplicationDbContext.cs`** — EF Core DbContext. Add new `DbSet<T>` properties here when adding entities.
-- **`Models/`** — Plain C# entity classes (e.g., `Player`).
+- **`app/layout.js`** — Root layout; renders the nav (`app/nav-menu.js`) and imports global styles.
+- **`app/page.js`**, **`app/players/page.js`** — Page components (Server Components by default).
+- **`app/healthz/route.js`** — Route Handler used by the Container Apps health probes.
+- **`lib/db.js`** — Exports a singleton `PrismaClient` instance. Import this wherever DB access is needed.
+- **`prisma/schema.prisma`** — Prisma schema. Add new models here, then run a migration.
 
 ## Database
 
-- **Local dev**: Start Postgres via `docker compose -f docker-compose.dev.yml up -d`, then `dotnet run`. Connection string in `appsettings.Development.json` targets `localhost:5432`.
-- **Production**: Supabase (hosted Postgres). Connection string injected into the Container App as `ConnectionStrings__DefaultConnection`.
-- Migrations apply automatically at app startup.
+- **Local dev**: Start Postgres via `docker compose -f docker-compose.dev.yml up -d`, then `npm run dev` from `src/web/`. Connection string in `src/web/.env` (`DATABASE_URL`, gitignored) targets `localhost:5432`.
+- **Production**: Supabase (hosted Postgres). Connection string injected into the Container App as `DATABASE_URL`.
+- Migrations do **not** run automatically at app startup — they're applied via `prisma migrate deploy` as a CI/CD step in `deploy.yml`.
+
+There are two Compose files at the repo root, for different purposes:
+- `docker-compose.dev.yml` — Postgres only, port 5432 published to the host. Use this when running the app with `npm run dev` directly on the host.
+- `docker-compose.yml` — full stack (`app` built from the root `Dockerfile`, plus `db`), for testing the production container image locally. `db` here also publishes port 5432, so don't run both files at once. This stack does **not** run migrations automatically — after `docker compose up -d --build`, run `npx prisma migrate deploy` from `src/web/` (with `DATABASE_URL` pointed at `localhost:5432`) before hitting any DB-backed route.
 
 ## Key Conventions
 
-- Target framework: `net10.0` with nullable reference types and implicit usings enabled.
-- ORM: Npgsql EF Core provider (`Npgsql.EntityFrameworkCore.PostgreSQL`).
-- New entities go in `Models/`, then add a `DbSet<T>` to `ApplicationDbContext`, then create an EF migration.
-- New pages go in `Components/Pages/` as `.razor` files.
+- Plain JavaScript (no TypeScript) for app code. `prisma.config.ts` is a Prisma tooling file and not part of the app build.
+- ORM: Prisma (`prisma-client-js` generator, with `linux-musl-openssl-3.0.x` added to `binaryTargets` for the Alpine-based Docker runtime).
+- New entities go in `prisma/schema.prisma`, then run `npx prisma migrate dev --name <name>`.
+- New pages go in `app/` as `page.js` files following Next.js App Router routing conventions.
