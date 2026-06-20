@@ -32,19 +32,18 @@ jobs:
           echo "acr_login_server=$(echo $output | jq -r '.acrLoginServer.value')" >> $GITHUB_OUTPUT
           echo "container_app_name=$(echo $output | jq -r '.containerAppName.value')" >> $GITHUB_OUTPUT
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          dotnet-version: '10.x'
+          node-version: '26.x'
 
       - name: Apply database migrations
-        working-directory: src/BoardGameFanatics
+        working-directory: src/web
         run: |
-          dotnet restore
-          dotnet tool restore
-          dotnet ef database update
+          npm ci
+          npx prisma migrate deploy
         env:
-          ConnectionStrings__DefaultConnection: ${{ secrets.SUPABASE_CONNECTION_STRING }}
+          DATABASE_URL: ${{ secrets.SUPABASE_CONNECTION_STRING }}
 
       - name: Log in to ACR
         run: az acr login --name ${{ steps.infra.outputs.acr_name }}

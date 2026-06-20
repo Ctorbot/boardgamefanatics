@@ -1,20 +1,27 @@
-# Build stage
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-WORKDIR /src
-
-COPY src/BoardGameFanatics/BoardGameFanatics.csproj src/BoardGameFanatics/
-RUN dotnet restore src/BoardGameFanatics/BoardGameFanatics.csproj
-
-COPY src/BoardGameFanatics/ src/BoardGameFanatics/
-WORKDIR /src/src/BoardGameFanatics
-RUN dotnet publish BoardGameFanatics.csproj -c Release -o /app/publish --no-restore
-
-# Runtime stage
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+# Base image
+FROM node:26-alpine AS base
 WORKDIR /app
-COPY --from=build /app/publish .
 
-ENV ASPNETCORE_URLS=http://+:8080
+# Install dependencies
+FROM base AS deps
+COPY src/web/package.json src/web/package-lock.json ./
+RUN npm ci --ignore-scripts
+
+# Build the app
+FROM base AS build
+COPY --from=deps /app/node_modules ./node_modules
+COPY src/web/ ./
+RUN npx prisma generate
+RUN npm run build
+
+# Runtime image
+FROM base AS runtime
+ENV NODE_ENV=production
+ENV PORT=8080
+
+COPY --from=build /app/public ./public
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
+
 EXPOSE 8080
-
-ENTRYPOINT ["dotnet", "BoardGameFanatics.dll"]
+CMD ["node", "server.js"]

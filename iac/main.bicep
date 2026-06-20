@@ -65,14 +65,14 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
       containers: [
         {
           name: appName
-          image: 'mcr.microsoft.com/dotnet/aspnet:10.0'
+          image: 'node:20-alpine'
           resources: {
             cpu: json('0.25')
             memory: '0.5Gi'
           }
           env: [
             {
-              name: 'ConnectionStrings__DefaultConnection'
+              name: 'DATABASE_URL'
               secretRef: 'db-connection'
             }
           ]
