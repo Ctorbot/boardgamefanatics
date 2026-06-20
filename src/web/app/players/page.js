@@ -1,3 +1,9 @@
+import Typography from "@mui/material/Typography";
+import Table from "@mui/material/Table";
+import TableHead from "@mui/material/TableHead";
+import TableBody from "@mui/material/TableBody";
+import TableRow from "@mui/material/TableRow";
+import TableCell from "@mui/material/TableCell";
 import { db } from "../../lib/db";
 
 export const dynamic = "force-dynamic";
@@ -7,27 +13,29 @@ export default async function PlayersPage() {
 
   return (
     <>
-      <h1>Players</h1>
+      <Typography variant="h4" component="h1" gutterBottom>
+        Players
+      </Typography>
 
       {players.length === 0 ? (
-        <p>No players yet.</p>
+        <Typography>No players yet.</Typography>
       ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Games Won</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Name</TableCell>
+              <TableCell>Games Won</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
             {players.map((player) => (
-              <tr key={player.id}>
-                <td>{player.name}</td>
-                <td>{player.gamesWon}</td>
-              </tr>
+              <TableRow key={player.id}>
+                <TableCell>{player.name}</TableCell>
+                <TableCell>{player.gamesWon}</TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       )}
     </>
   );

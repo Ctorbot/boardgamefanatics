@@ -1,5 +1,6 @@
-import "bootstrap/dist/css/bootstrap.min.css";
 import "./globals.css";
+import Box from "@mui/material/Box";
+import ThemeRegistry from "./theme-registry";
 import NavMenu from "./nav-menu";
 
 export const metadata = {
@@ -11,12 +12,14 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <div className="page">
-          <div className="sidebar">
+        <ThemeRegistry>
+          <Box sx={{ display: "flex" }}>
             <NavMenu />
-          </div>
-          <main>{children}</main>
-        </div>
+            <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+              {children}
+            </Box>
+          </Box>
+        </ThemeRegistry>
       </body>
     </html>
   );

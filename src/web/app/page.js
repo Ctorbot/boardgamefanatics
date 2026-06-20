@@ -1,9 +1,13 @@
+import Typography from "@mui/material/Typography";
+
 export default function Home() {
   return (
     <>
-      <h1>Hello, world!</h1>
+      <Typography variant="h4" component="h1" gutterBottom>
+        Hello, world!
+      </Typography>
 
-      <p>Welcome to your new app.</p>
+      <Typography>Welcome to your new app.</Typography>
     </>
   );
 }

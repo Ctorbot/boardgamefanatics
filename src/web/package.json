@@ -13,8 +13,11 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/material": "^9.1.1",
+    "@mui/material-nextjs": "^9.1.1",
     "@prisma/client": "^6.19.3",
-    "bootstrap": "^5.3.8",
     "next": "16.2.9",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
