@@ -15,6 +15,13 @@ COPY src/web/ ./
 # generate` never connects to it. The real value is injected at runtime by
 # Container Apps and never reaches this build-only stage.
 ENV DATABASE_URL="postgresql://user:password@localhost:5432/db"
+# Real values required here: Next.js inlines NEXT_PUBLIC_* vars into the
+# production bundle at build time, not runtime, so these must be supplied
+# as build args (see deploy.yml) rather than as Container App env vars.
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+ENV NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
 RUN npx prisma generate
 RUN npm run build
 

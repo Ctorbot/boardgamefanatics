@@ -33,9 +33,13 @@ ACR name, login server, and Container App name are read from Bicep deployment ou
 | `AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
 | `AZURE_RESOURCE_GROUP` | Resource group to deploy into |
 | `SUPABASE_CONNECTION_STRING` | Session pooler connection string (port 5432), in Prisma's URI format: `postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (e.g. `https://<project-ref>.supabase.co`) — not sensitive, but must be a GitHub secret (or repo variable) so it reaches the Docker build step |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase publishable/anon key — same deal, browser-safe but still needs to flow through CI |
 | `ALERT_EMAIL` | Email to notify when budget thresholds are hit |
 
 The Supabase connection string is stored as a secret on the Container App and injected as `DATABASE_URL` (the env var Prisma reads). It must be the `postgresql://` URI format — not the ADO.NET/Npgsql key-value format (`Host=...;Database=...;Username=...;Password=...`) used by the old EF Core app.
+
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are different from the other secrets: Next.js inlines `NEXT_PUBLIC_*` env vars into the production bundle **at build time**, not runtime, regardless of whether the referencing code is client- or server-side. They're passed into `docker build` as `--build-arg`s in `deploy.yml` and consumed by `ARG`/`ENV` in the Dockerfile's `build` stage — setting them only as Container App runtime env vars would not work, since the compiled bundle would already have `undefined` baked in for them.
 
 Use the **Session pooler** connection string (Supabase dashboard: **Project Settings → Database → Connection string → Session**), not the raw direct host (`db.<project-ref>.supabase.co`) and not the **Transaction** pooler. The direct host now resolves to an IPv6-only address, which GitHub Actions' hosted runners can't reach — the session pooler has an IPv4 endpoint and (unlike the transaction pooler on port 6543) preserves session semantics, so `prisma migrate deploy` still works correctly. Note the pooler username is `postgres.<project-ref>`, not just `postgres`.
 
