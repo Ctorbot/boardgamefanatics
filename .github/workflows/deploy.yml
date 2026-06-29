@@ -32,16 +32,16 @@ jobs:
           echo "acr_login_server=$(echo $output | jq -r '.acrLoginServer.value')" >> $GITHUB_OUTPUT
           echo "container_app_name=$(echo $output | jq -r '.containerAppName.value')" >> $GITHUB_OUTPUT
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
         with:
-          node-version: '26.x'
+          dotnet-version: '10.0.x'
 
       - name: Apply database migrations
-        working-directory: src/web
+        working-directory: src/BlazorApp/BoardGameFanatics
         run: |
-          npm ci
-          npx prisma migrate deploy
+          dotnet tool restore
+          dotnet ef database update
         env:
           DATABASE_URL: ${{ secrets.SUPABASE_CONNECTION_STRING }}
 
@@ -51,8 +51,6 @@ jobs:
       - name: Build and push image
         run: |
           docker build \
-            --build-arg NEXT_PUBLIC_SUPABASE_URL="${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" \
-            --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}" \
             -t ${{ steps.infra.outputs.acr_login_server }}/boardgamefanatics:${{ github.sha }} .
           docker push ${{ steps.infra.outputs.acr_login_server }}/boardgamefanatics:${{ github.sha }}
 
@@ -61,4 +59,7 @@ jobs:
           az containerapp update \
             --name ${{ steps.infra.outputs.container_app_name }} \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-            --image ${{ steps.infra.outputs.acr_login_server }}/boardgamefanatics:${{ github.sha }}
+            --image ${{ steps.infra.outputs.acr_login_server }}/boardgamefanatics:${{ github.sha }} \
+            --set-env-vars \
+              SUPABASE_URL="${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" \
+              SUPABASE_ANON_KEY="${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}"

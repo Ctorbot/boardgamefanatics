@@ -1,0 +1,41 @@
+@page "/players"
+@rendermode InteractiveServer
+@inject AppDbContext Db
+
+<PageTitle>Players — BoardGameFanatics</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Players</MudText>
+
+@if (_players is null)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_players.Count == 0)
+{
+    <MudText>No approved players yet.</MudText>
+}
+else
+{
+    <MudList T="string">
+        @foreach (var player in _players)
+        {
+            <MudListItem>
+                <MudLink Href="@($"/players/{player.Id}/collection")" Typo="Typo.body1">
+                    @player.DisplayName
+                </MudLink>
+            </MudListItem>
+        }
+    </MudList>
+}
+
+@code {
+    private List<Player>? _players;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _players = await Db.Players
+            .Where(p => p.Status == PlayerStatus.Approved)
+            .OrderBy(p => p.DisplayName)
+            .ToListAsync();
+    }
+}

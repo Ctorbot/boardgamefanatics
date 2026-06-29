@@ -1,0 +1,71 @@
+@page "/login"
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<PageTitle>Login — BoardGameFanatics</PageTitle>
+
+<MudGrid Justify="Justify.Center">
+    <MudItem xs="12" sm="8" md="5">
+        <MudPaper Class="pa-6 mt-8">
+            <MudText Typo="Typo.h5" GutterBottom="true">Sign In</MudText>
+
+            @if (!string.IsNullOrEmpty(Notice))
+            {
+                <MudAlert Severity="Severity.Info" Class="mb-4">@Notice</MudAlert>
+            }
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+            }
+
+            <EditForm Model="Input" OnValidSubmit="HandleLoginAsync" FormName="login" method="post">
+                <DataAnnotationsValidator />
+                <MudStack Spacing="3">
+                    <MudTextField @bind-Value="Input.Email" Label="Email" Variant="Variant.Outlined"
+                                  InputType="InputType.Email" For="@(() => Input.Email)" />
+                    <MudTextField @bind-Value="Input.Password" Label="Password" Variant="Variant.Outlined"
+                                  InputType="InputType.Password" For="@(() => Input.Password)" />
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                               Color="Color.Primary" FullWidth="true">
+                        Sign In
+                    </MudButton>
+                </MudStack>
+            </EditForm>
+
+            <MudText Class="mt-4" Align="Align.Center">
+                Don't have an account? <MudLink Href="/signup">Sign up</MudLink>
+            </MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    [SupplyParameterFromForm(FormName = "login")]
+    public LoginModel Input { get; set; } = null!;
+
+    protected override void OnInitialized() => Input ??= new();
+
+    [SupplyParameterFromQuery]
+    public string? Notice { get; set; }
+
+    private string? _error;
+
+    private async Task HandleLoginAsync()
+    {
+        var (success, error) = await Auth.SignInAsync(Input.Email, Input.Password);
+        if (success)
+            Nav.NavigateTo("/", forceLoad: true);
+        else
+            _error = error;
+    }
+
+    public sealed class LoginModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.EmailAddress]
+        public string Email { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Password { get; set; } = "";
+    }
+}

@@ -1,0 +1,179 @@
+@page "/players/{PlayerId:guid}/collection"
+@rendermode InteractiveServer
+@inject AppDbContext Db
+@inject CollectionService CollectionSvc
+@inject BggService Bgg
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_player?.DisplayName ?? "Player")'s Bookshelf</PageTitle>
+
+@if (_player is null)
+{
+    <MudText>Player not found.</MudText>
+    return;
+}
+
+<MudText Typo="Typo.h4" GutterBottom="true">@_player.DisplayName's Bookshelf</MudText>
+
+@if (_entries is null)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_entries.Count == 0)
+{
+    <MudText>No games yet.</MudText>
+}
+else
+{
+    <MudList T="string" Dense="true">
+        @foreach (var entry in _entries)
+        {
+            <MudListItem>
+                <div class="d-flex align-center justify-space-between">
+                    <div>
+                        <MudText Typo="Typo.body1">@entry.Game.Name</MudText>
+                        @if (entry.Game.YearPublished.HasValue)
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@entry.Game.YearPublished</MudText>
+                        }
+                    </div>
+                    @if (_canEdit)
+                    {
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                                       OnClick="@(() => RemoveGameAsync(entry.Id))" />
+                    }
+                </div>
+            </MudListItem>
+        }
+    </MudList>
+}
+
+@if (_canEdit)
+{
+    <MudDivider Class="my-4" />
+    <MudText Typo="Typo.h5" GutterBottom="true">Add a game</MudText>
+
+    <MudStack Row="true" Spacing="2" Class="mb-4">
+        <MudTextField @bind-Value="_searchQuery" Label="Search BoardGameGeek" Variant="Variant.Outlined"
+                      Class="flex-grow-1" Immediate="false" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SearchAsync"
+                   Disabled="_searching">
+            @if (_searching) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Search
+        </MudButton>
+    </MudStack>
+
+    @if (_searchResults is not null)
+    {
+        @if (_searchResults.Count == 0)
+        {
+            <MudText>No results found.</MudText>
+        }
+        else
+        {
+            <MudList T="string" Dense="true">
+                @foreach (var result in _searchResults)
+                {
+                    <MudListItem>
+                        <div class="d-flex align-center justify-space-between">
+                            <div>
+                                <MudText Typo="Typo.body1">@result.Name</MudText>
+                                @if (result.YearPublished.HasValue)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@result.YearPublished</MudText>
+                                }
+                            </div>
+                            @if (_ownedBggIds.Contains(result.BggId))
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Already added</MudText>
+                            }
+                            else
+                            {
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                                           OnClick="@(() => AddGameAsync(result.BggId))">Add</MudButton>
+                            }
+                        </div>
+                    </MudListItem>
+                }
+            </MudList>
+        }
+    }
+}
+
+@code {
+    [Parameter] public Guid PlayerId { get; set; }
+    [CascadingParameter] private Task<AuthenticationState> AuthState { get; set; } = null!;
+
+    private Player? _player;
+    private List<CollectionEntry>? _entries;
+    private HashSet<int> _ownedBggIds = [];
+    private bool _canEdit;
+
+    private string _searchQuery = "";
+    private List<BggSearchResult>? _searchResults;
+    private bool _searching;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthState;
+        var currentPlayer = AuthService.GetCurrentPlayer(auth.User);
+        _canEdit = currentPlayer?.Id == PlayerId && currentPlayer.Status == PlayerStatus.Approved;
+
+        _player = await Db.Players.FindAsync(PlayerId);
+        if (_player is null) return;
+
+        await LoadCollectionAsync();
+    }
+
+    private async Task LoadCollectionAsync()
+    {
+        _entries = await Db.CollectionEntries
+            .Where(e => e.PlayerId == PlayerId)
+            .Include(e => e.Game)
+            .OrderBy(e => e.Game.Name)
+            .ToListAsync();
+        _ownedBggIds = _entries.Select(e => e.GameId).ToHashSet();
+    }
+
+    private async Task SearchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery)) return;
+        _searching = true;
+        try
+        {
+            _searchResults = await Bgg.SearchGamesAsync(_searchQuery);
+        }
+        finally
+        {
+            _searching = false;
+        }
+    }
+
+    private async Task AddGameAsync(int bggId)
+    {
+        try
+        {
+            await CollectionSvc.AddGameAsync(PlayerId, bggId);
+            await LoadCollectionAsync();
+            Snackbar.Add("Game added!", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task RemoveGameAsync(int entryId)
+    {
+        try
+        {
+            await CollectionSvc.RemoveGameAsync(PlayerId, entryId);
+            await LoadCollectionAsync();
+            Snackbar.Add("Game removed.", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+    }
+}

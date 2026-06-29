@@ -1,0 +1,63 @@
+@page "/admin/players"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+@inject AppDbContext Db
+@inject ISnackbar Snackbar
+
+<PageTitle>Pending Players — Admin</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Pending Players</MudText>
+
+@if (_players is null)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_players.Count == 0)
+{
+    <MudText>No pending players.</MudText>
+}
+else
+{
+    <MudTable Items="_players" Hover="true" Dense="true">
+        <HeaderContent>
+            <MudTh>Display Name</MudTh>
+            <MudTh>Signed Up</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.DisplayName</MudTd>
+            <MudTd>@context.CreatedAt.ToLocalTime().ToShortDateString()</MudTd>
+            <MudTd>
+                <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Primary"
+                           OnClick="@(() => ApproveAsync(context.Id))">
+                    Approve
+                </MudButton>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private List<Player>? _players;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _players = await Db.Players
+            .Where(p => p.Status == PlayerStatus.Pending)
+            .OrderBy(p => p.CreatedAt)
+            .ToListAsync();
+    }
+
+    private async Task ApproveAsync(Guid playerId)
+    {
+        var player = await Db.Players.FindAsync(playerId);
+        if (player is null) return;
+
+        player.Status = PlayerStatus.Approved;
+        await Db.SaveChangesAsync();
+        await LoadAsync();
+        Snackbar.Add($"{player.DisplayName} approved.", Severity.Success);
+    }
+}

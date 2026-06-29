@@ -1,0 +1,72 @@
+@page "/signup"
+@inject AuthService Auth
+@inject NavigationManager Nav
+
+<PageTitle>Sign Up — BoardGameFanatics</PageTitle>
+
+<MudGrid Justify="Justify.Center">
+    <MudItem xs="12" sm="8" md="5">
+        <MudPaper Class="pa-6 mt-8">
+            <MudText Typo="Typo.h5" GutterBottom="true">Create Account</MudText>
+
+            @if (!string.IsNullOrEmpty(_error))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+            }
+
+            <EditForm Model="Input" OnValidSubmit="HandleSignupAsync" FormName="signup" method="post">
+                <DataAnnotationsValidator />
+                <MudStack Spacing="3">
+                    <MudTextField @bind-Value="Input.DisplayName" Label="Display Name" Variant="Variant.Outlined"
+                                  For="@(() => Input.DisplayName)" />
+                    <MudTextField @bind-Value="Input.Email" Label="Email" Variant="Variant.Outlined"
+                                  InputType="InputType.Email" For="@(() => Input.Email)" />
+                    <MudTextField @bind-Value="Input.Password" Label="Password" Variant="Variant.Outlined"
+                                  InputType="InputType.Password" For="@(() => Input.Password)" />
+                    <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                               Color="Color.Primary" FullWidth="true">
+                        Sign Up
+                    </MudButton>
+                </MudStack>
+            </EditForm>
+
+            <MudText Class="mt-4" Align="Align.Center">
+                Already have an account? <MudLink Href="/login">Sign in</MudLink>
+            </MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    [SupplyParameterFromForm(FormName = "signup")]
+    public SignupModel Input { get; set; } = null!;
+
+    protected override void OnInitialized() => Input ??= new();
+
+    private string? _error;
+
+    private async Task HandleSignupAsync()
+    {
+        var (success, error) = await Auth.SignUpAsync(Input.Email, Input.Password, Input.DisplayName);
+        if (success)
+            Nav.NavigateTo("/login?Notice=Account+created!+Check+your+email+to+confirm,+then+wait+for+admin+approval.",
+                forceLoad: true);
+        else
+            _error = error;
+    }
+
+    public sealed class SignupModel
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.MaxLength(50)]
+        public string DisplayName { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.EmailAddress]
+        public string Email { get; set; } = "";
+
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.MinLength(8)]
+        public string Password { get; set; } = "";
+    }
+}
