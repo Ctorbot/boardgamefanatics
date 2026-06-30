@@ -41,6 +41,7 @@ jobs:
         working-directory: src/BlazorApp/BoardGameFanatics
         run: |
           dotnet tool restore
+          dotnet restore
           dotnet ef database update
         env:
           ConnectionStrings__DefaultConnection: ${{ secrets.SUPABASE_CONNECTION_STRING }}
