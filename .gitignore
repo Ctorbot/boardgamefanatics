@@ -417,3 +417,4 @@ FodyWeavers.xsd
 *.msm
 *.msp
 /src/BoardGameFanatics/appsettings.Development.json
+/src/BlazorApp/BoardGameFanatics/appsettings.Development.json

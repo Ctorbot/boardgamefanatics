@@ -43,7 +43,7 @@ jobs:
           dotnet tool restore
           dotnet ef database update
         env:
-          DATABASE_URL: ${{ secrets.SUPABASE_CONNECTION_STRING }}
+          ConnectionStrings__DefaultConnection: ${{ secrets.SUPABASE_CONNECTION_STRING }}
 
       - name: Log in to ACR
         run: az acr login --name ${{ steps.infra.outputs.acr_name }}
@@ -61,5 +61,6 @@ jobs:
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
             --image ${{ steps.infra.outputs.acr_login_server }}/boardgamefanatics:${{ github.sha }} \
             --set-env-vars \
+              "ConnectionStrings__DefaultConnection=${{ secrets.SUPABASE_CONNECTION_STRING }}" \
               SUPABASE_URL="${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" \
               SUPABASE_ANON_KEY="${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}"

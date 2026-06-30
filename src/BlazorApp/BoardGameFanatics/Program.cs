@@ -14,12 +14,7 @@ var connectionString = builder.Configuration["DATABASE_URL"]
     ?? builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("DATABASE_URL or ConnectionStrings:DefaultConnection not configured.");
 
-// Map PostgreSQL native enums to C# enums (names must match after translation).
-// The DB stores uppercase values (PENDING/APPROVED/PLAYER/ADMIN), so we map
-// C# PascalCase (Pending → PENDING) via ToUpperInvariant.
 var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
-dataSourceBuilder.MapEnum<PlayerStatus>("PlayerStatus", BoardGameFanatics.Data.UpperCaseNameTranslator.Instance);
-dataSourceBuilder.MapEnum<PlayerRole>("PlayerRole", BoardGameFanatics.Data.UpperCaseNameTranslator.Instance);
 var dataSource = dataSourceBuilder.Build();
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(dataSource));

@@ -8,19 +8,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Game> Games => Set<Game>();
     public DbSet<CollectionEntry> CollectionEntries => Set<CollectionEntry>();
 
+    // Converts C# enum member names to the uppercase PostgreSQL enum labels the DB stores.
+    private static readonly Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<PlayerStatus, string>
+        _statusConverter = new(
+            v => v.ToString().ToUpperInvariant(),
+            v => Enum.Parse<PlayerStatus>(v, ignoreCase: true));
+
+    private static readonly Microsoft.EntityFrameworkCore.Storage.ValueConversion.ValueConverter<PlayerRole, string>
+        _roleConverter = new(
+            v => v.ToString().ToUpperInvariant(),
+            v => Enum.Parse<PlayerRole>(v, ignoreCase: true));
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.HasPostgresEnum<PlayerStatus>(null, "PlayerStatus", UpperCaseNameTranslator.Instance);
-        modelBuilder.HasPostgresEnum<PlayerRole>(null, "PlayerRole", UpperCaseNameTranslator.Instance);
-
         modelBuilder.Entity<Player>(b =>
         {
             b.ToTable("Player");
             b.HasKey(p => p.Id);
             b.Property(p => p.Id).HasColumnName("id");
             b.Property(p => p.DisplayName).HasColumnName("displayName");
-            b.Property(p => p.Status).HasColumnName("status").HasColumnType("\"PlayerStatus\"");
-            b.Property(p => p.Role).HasColumnName("role").HasColumnType("\"PlayerRole\"");
+            b.Property(p => p.Status).HasColumnName("status")
+                .HasColumnType("\"PlayerStatus\"").HasConversion(_statusConverter);
+            b.Property(p => p.Role).HasColumnName("role")
+                .HasColumnType("\"PlayerRole\"").HasConversion(_roleConverter);
             b.Property(p => p.CreatedAt).HasColumnName("createdAt");
         });
 
